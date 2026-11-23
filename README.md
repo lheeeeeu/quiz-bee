@@ -1,11 +1,10 @@
-<<<<<<< HEAD
 # 🏆 Real-Time Quiz Bee Competition System
 
 A broadcast-grade, server-authoritative Real-Time Quiz Bee Competition System featuring three synchronized interfaces:
 
-1. **Host/Admin Dashboard** (`/#admin`)
-2. **Main Display Screen (Projector / TV)** (`/#display`)
-3. **Individual Team Answering Pages (Up to 10+ Teams)** (`/#team` or `/?team=team-1`)
+1. **Admin / Host Dashboard** (`/admin`)
+2. **Main Display Screen (Projector / TV)** (`/display`)
+3. **Contestant / Group Portal (Code Login)** (`/contestant`)
 
 ---
 
@@ -94,29 +93,28 @@ Once the server is running:
 
 ```
 quiz-bee-system/
-├── data/                      # Local persistent JSON database store
+├── data/                      # Local SQLite database (quizbee.db)
 ├── server/
-│   ├── db.js                  # Database manager & initial pre-loaded datasets
+│   ├── db.js                  # Local SQLite relational database manager
+│   ├── supabase-sync.js       # Supabase cloud PostgreSQL auto-sync engine
 │   ├── game-engine.js         # Authoritative state machine & timer controller
 │   ├── index.js               # Express + Socket.IO server & REST routes
 │   └── test-flow.js           # Automated end-to-end testing script
 ├── src/
 │   ├── components/
-│   │   ├── admin/             # Host Dashboard & Question/Team/Category Managers
-│   │   ├── common/            # Header, TimerDisplay, Badges
-│   │   ├── display/           # Main Projector / TV Screen
-│   │   └── team/              # Team Answering Portal & Terminals
+│   │   ├── admin/             # Host Dashboard & Question/Team/Category/Config Managers
+│   │   ├── common/            # Header, TimerDisplay
+│   │   ├── display/           # Fit-to-screen Main Projector / TV Screen
+│   │   └── team/              # Code-only Contestant Answering Portal
 │   ├── services/
 │   │   ├── socket.js          # Socket.IO client with time offset synchronization
 │   │   └── sound.js           # Web Audio API sound effects synthesizer
-│   ├── App.jsx                # Multi-view coordinator
+│   ├── App.jsx                # Route-separated portal entry & admin auth gate
 │   ├── index.css              # Tailwind CSS styling & animations
 │   └── main.jsx               # React entrypoint
 ├── supabase/
-│   └── schema.sql             # Production Supabase PostgreSQL migrations & RLS
+│   └── schema.sql             # Supabase PostgreSQL schema & RLS policies
+├── .env.example               # Environment variables template
 ├── package.json
 └── vite.config.js
 ```
-=======
-# quiz-bee
->>>>>>> origin/main
