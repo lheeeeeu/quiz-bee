@@ -1,5 +1,5 @@
 import { io } from 'socket.io-client';
-import { apiUrl, getSocketBaseUrl } from './api';
+import { apiUrl, getSocketBaseUrl, IS_API_CONFIGURED, API_CONFIG_ERROR } from './api';
 
 class SocketService {
   constructor() {
@@ -11,7 +11,14 @@ class SocketService {
   connect() {
     if (this.socket) return this.socket;
 
+    if (!IS_API_CONFIGURED) {
+      console.error('[Socket] Skipping WebSocket connection:', API_CONFIG_ERROR);
+      this.notifyListeners('connection_error', { message: API_CONFIG_ERROR });
+      return null;
+    }
+
     const socketUrl = getSocketBaseUrl();
+    if (!socketUrl) return null;
 
     this.socket = io(socketUrl, {
       transports: ['websocket', 'polling'],
@@ -19,11 +26,11 @@ class SocketService {
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
-      timeout: 20000
+      timeout: 25000
     });
 
     this.socket.on('connect', () => {
-      console.log('⚡ Connected to Quiz Bee Real-Time Server, ID:', this.socket.id);
+      console.log('⚡ Connected to Quiz Bee Real-Time Server:', socketUrl, 'ID:', this.socket.id);
       this.syncServerTime();
       this.notifyListeners('connection_status', { connected: true });
     });
@@ -47,7 +54,6 @@ class SocketService {
       this.syncServerTime();
     });
 
-    // Notify registered UI state listeners
     this.socket.on('game_state_update', (state) => {
       if (state.serverTime) {
         this.serverTimeOffset = state.serverTime - Date.now();
@@ -78,10 +84,12 @@ class SocketService {
   }
 
   async syncServerTime() {
+    if (!IS_API_CONFIGURED) return;
     try {
       const start = Date.now();
       const res = await fetch(apiUrl('/api/time'));
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
         const data = await res.json();
         const roundTrip = Date.now() - start;
         const estimatedServerNow = data.serverTime + (roundTrip / 2);

@@ -4,7 +4,7 @@ import {
   LogOut, Check, KeyRound
 } from 'lucide-react';
 import { socketService } from '../../services/socket';
-import { apiUrl } from '../../services/api';
+import { apiUrl, IS_API_CONFIGURED, API_CONFIG_ERROR } from '../../services/api';
 import { TimerDisplay } from '../common/TimerDisplay';
 
 export function TeamPortal({ state }) {
@@ -83,6 +83,10 @@ export function TeamPortal({ state }) {
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoginError('');
+    if (!IS_API_CONFIGURED) {
+      setLoginError(API_CONFIG_ERROR || 'Backend API URL is not configured.');
+      return;
+    }
     const trimmed = enteredCode.trim().toUpperCase();
     if (!trimmed) {
       setLoginError('Please enter the group code given by the admin.');
@@ -95,6 +99,10 @@ export function TeamPortal({ state }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: trimmed })
       });
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        throw new Error(`Backend returned HTTP ${res.status} instead of JSON. Verify VITE_API_URL points to your Render backend.`);
+      }
       const data = await res.json();
       if (!res.ok || !data.success || !data.team) {
         setLoginError(data.error || 'Invalid Group Code. Please verify with the host/admin.');
@@ -102,8 +110,8 @@ export function TeamPortal({ state }) {
         setActiveTeamId(data.team.id);
         setEnteredCode('');
       }
-    } catch {
-      setLoginError('Unable to reach server. Please check your connection.');
+    } catch (err) {
+      setLoginError(err.message || 'Unable to reach server. Please check your connection.');
     } finally {
       setLoggingIn(false);
     }

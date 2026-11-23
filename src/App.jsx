@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Users, Monitor, Lock, ArrowRight } from 'lucide-react';
 import { socketService } from './services/socket';
-import { apiUrl } from './services/api';
+import { apiUrl, IS_API_CONFIGURED, API_CONFIG_ERROR } from './services/api';
 import { Header } from './components/common/Header';
 import { HostDashboard } from './components/admin/HostDashboard';
 import { MainDisplayScreen } from './components/display/MainDisplayScreen';
@@ -35,11 +35,20 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    const socket = socketService.connect();
-    if (socket.connected) setIsConnected(true);
+    if (!IS_API_CONFIGURED) {
+      return;
+    }
 
-    socket.on('connect', () => setIsConnected(true));
-    socket.on('disconnect', () => setIsConnected(false));
+    const socket = socketService.connect();
+    if (socket?.connected) setIsConnected(true);
+
+    const handleConnect = () => setIsConnected(true);
+    const handleDisconnect = () => setIsConnected(false);
+
+    if (socket) {
+      socket.on('connect', handleConnect);
+      socket.on('disconnect', handleDisconnect);
+    }
 
     const unsubscribe = socketService.subscribe((event, data) => {
       if (event === 'state_update') {
@@ -48,11 +57,21 @@ export function App() {
     });
 
     fetch(apiUrl('/api/state'))
-      .then(res => res.json())
+      .then(async (res) => {
+        const contentType = res.headers.get('content-type') || '';
+        if (!res.ok || !contentType.includes('application/json')) {
+          throw new Error(`Expected JSON from backend /api/state (HTTP ${res.status})`);
+        }
+        return res.json();
+      })
       .then(data => setGameState(data))
-      .catch(err => console.warn('REST snapshot fallback warning:', err));
+      .catch(err => console.warn('REST snapshot fallback warning:', err.message || err));
 
     return () => {
+      if (socket) {
+        socket.off('connect', handleConnect);
+        socket.off('disconnect', handleDisconnect);
+      }
       unsubscribe();
     };
   }, []);
@@ -99,11 +118,18 @@ export function App() {
   // Dedicated Portal Selector Landing (/)
   if (currentView === 'home') {
     return (
-      <PortalLandingPage
-        config={gameState?.config || {}}
-        isConnected={isConnected}
-        onNavigate={navigate}
-      />
+      <>
+        {API_CONFIG_ERROR && (
+          <div className="bg-red-800 text-white text-xs font-semibold px-4 py-2 text-center">
+            ⚠️ {API_CONFIG_ERROR}
+          </div>
+        )}
+        <PortalLandingPage
+          config={gameState?.config || {}}
+          isConnected={isConnected}
+          onNavigate={navigate}
+        />
+      </>
     );
   }
 
@@ -259,6 +285,10 @@ function AdminLoginPage({ config, onSuccess, onBackHome }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    if (!IS_API_CONFIGURED) {
+      setError(API_CONFIG_ERROR || 'Backend API URL is not configured.');
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch(apiUrl('/api/auth/admin-login'), {
@@ -266,14 +296,18 @@ function AdminLoginPage({ config, onSuccess, onBackHome }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ passcode })
       });
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        throw new Error(`Unexpected response from backend (HTTP ${res.status}). Check VITE_API_URL.`);
+      }
       const data = await res.json();
       if (!res.ok || !data.success) {
         setError(data.error || 'Invalid Admin Passcode.');
       } else {
         onSuccess();
       }
-    } catch {
-      setError('Unable to reach server. Please try again.');
+    } catch (err) {
+      setError(err.message || 'Unable to reach server. Please try again.');
     } finally {
       setLoading(false);
     }

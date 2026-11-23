@@ -6,7 +6,7 @@ import {
   Sliders, Upload, Download, Database, Layers, ShieldCheck, FileX2, History, Cloud, RefreshCw, KeyRound, Copy
 } from 'lucide-react';
 import { socketService } from '../../services/socket';
-import { apiUrl } from '../../services/api';
+import { apiUrl, IS_API_CONFIGURED } from '../../services/api';
 import { sound } from '../../services/sound';
 import { TimerDisplay } from '../common/TimerDisplay';
 
@@ -2065,7 +2065,7 @@ function EventConfigManager({ config, dbInfo, supabaseStatus, auditLogs, primary
 
           <div className="flex flex-wrap items-center gap-2">
             <a
-              href={apiUrl('/api/db/export')}
+              href={IS_API_CONFIGURED ? apiUrl('/api/db/export') : '#'}
               download
               className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-[#f6f4ef] hover:bg-[#ece6de] text-[#2b1b1d] border border-[#d6cfc7] text-xs font-bold transition-all"
             >
