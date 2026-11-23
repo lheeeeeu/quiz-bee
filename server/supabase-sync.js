@@ -85,11 +85,22 @@ class SupabaseSyncService {
     }
 
     try {
-      const { data: remoteCats, error } = await this.client.from('categories').select('id').limit(1);
-      if (error) throw error;
+      const [cfgRes, catRes, teamRes] = await Promise.all([
+        this.client.from('event_config').select('id').limit(1),
+        this.client.from('categories').select('id').limit(1),
+        this.client.from('teams').select('id').limit(1)
+      ]);
+      if (cfgRes.error) throw cfgRes.error;
+      if (catRes.error) throw catRes.error;
+      if (teamRes.error) throw teamRes.error;
 
-      if (remoteCats && remoteCats.length > 0) {
-        console.log('[Supabase] Found existing data in Supabase Cloud — pulling into local database...');
+      const hasCloudData =
+        (cfgRes.data && cfgRes.data.length > 0) ||
+        (catRes.data && catRes.data.length > 0) ||
+        (teamRes.data && teamRes.data.length > 0);
+
+      if (hasCloudData) {
+        console.log('[Supabase] Found existing data in Supabase Cloud — pulling into local runtime cache...');
         await this.pullFromSupabase(db);
       } else {
         console.log('[Supabase] Cloud tables are empty — pushing initial local database to Supabase...');
@@ -101,6 +112,17 @@ class SupabaseSyncService {
     }
 
     return this.getStatus();
+  }
+
+  // Flush any pending debounced write immediately (used on Cloud Run SIGTERM shutdown)
+  async flushPendingPush() {
+    if (this.pushTimer) {
+      clearTimeout(this.pushTimer);
+      this.pushTimer = null;
+      if (this.dbRef && this.status.tablesReady) {
+        await this.pushToSupabase(this.dbRef);
+      }
+    }
   }
 
   // Schedule debounced background sync to Supabase after local SQLite mutations (zero lag on live timer!)

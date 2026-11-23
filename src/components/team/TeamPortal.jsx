@@ -4,6 +4,7 @@ import {
   LogOut, Check, KeyRound
 } from 'lucide-react';
 import { socketService } from '../../services/socket';
+import { apiUrl } from '../../services/api';
 import { TimerDisplay } from '../common/TimerDisplay';
 
 export function TeamPortal({ state }) {
@@ -89,7 +90,7 @@ export function TeamPortal({ state }) {
     }
     setLoggingIn(true);
     try {
-      const res = await fetch('/api/auth/team-login', {
+      const res = await fetch(apiUrl('/api/auth/team-login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: trimmed })

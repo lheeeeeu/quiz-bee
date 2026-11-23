@@ -6,6 +6,7 @@ import {
   Sliders, Upload, Download, Database, Layers, ShieldCheck, FileX2, History, Cloud, RefreshCw, KeyRound, Copy
 } from 'lucide-react';
 import { socketService } from '../../services/socket';
+import { apiUrl } from '../../services/api';
 import { sound } from '../../services/sound';
 import { TimerDisplay } from '../common/TimerDisplay';
 
@@ -943,7 +944,7 @@ function QuestionBankManager({ questions, categories, primaryColor, editingQuest
         : []
     };
     try {
-      const res = await fetch('/api/questions', {
+      const res = await fetch(apiUrl('/api/questions'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -981,7 +982,7 @@ function QuestionBankManager({ questions, categories, primaryColor, editingQuest
 
     if (parsed.length === 0) return;
 
-    const res = await fetch('/api/questions/bulk', {
+    const res = await fetch(apiUrl('/api/questions/bulk'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ questions: parsed })
@@ -995,7 +996,7 @@ function QuestionBankManager({ questions, categories, primaryColor, editingQuest
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this question?')) return;
-    await fetch(`/api/questions/${id}`, { method: 'DELETE' });
+    await fetch(apiUrl(`/api/questions/${id}`), { method: 'DELETE' });
   };
 
   const filteredQuestions = filterCatId === 'ALL'
@@ -1332,7 +1333,7 @@ function CategoryManager({ categories, questions, primaryColor, editingCategory,
 
   const handleSave = async (e) => {
     e.preventDefault();
-    const res = await fetch('/api/categories', {
+    const res = await fetch(apiUrl('/api/categories'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(formData)
@@ -1345,7 +1346,7 @@ function CategoryManager({ categories, questions, primaryColor, editingCategory,
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this round?')) return;
-    await fetch(`/api/categories/${id}`, { method: 'DELETE' });
+    await fetch(apiUrl(`/api/categories/${id}`), { method: 'DELETE' });
   };
 
   return (
@@ -1500,7 +1501,7 @@ function TeamManager({ teams, participantLabel, primaryColor, connectedTeamIds, 
 
   const handleSave = async (e) => {
     e.preventDefault();
-    const res = await fetch('/api/teams', {
+    const res = await fetch(apiUrl('/api/teams'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(formData)
@@ -1512,7 +1513,7 @@ function TeamManager({ teams, participantLabel, primaryColor, connectedTeamIds, 
   };
 
   const handleRegenerateOne = async (team) => {
-    const res = await fetch(`/api/teams/${team.id}/regenerate-code`, { method: 'POST' });
+    const res = await fetch(apiUrl(`/api/teams/${team.id}/regenerate-code`), { method: 'POST' });
     if (res.ok) {
       onTeamSaved();
     }
@@ -1520,7 +1521,7 @@ function TeamManager({ teams, participantLabel, primaryColor, connectedTeamIds, 
 
   const handleRegenerateAll = async () => {
     if (!window.confirm('Generate fresh random access codes for ALL groups/schools? Existing codes will be replaced.')) return;
-    const res = await fetch('/api/teams/regenerate-all-codes', { method: 'POST' });
+    const res = await fetch(apiUrl('/api/teams/regenerate-all-codes'), { method: 'POST' });
     if (res.ok) {
       onTeamSaved();
     }
@@ -1534,7 +1535,7 @@ function TeamManager({ teams, participantLabel, primaryColor, connectedTeamIds, 
 
   const handleDelete = async (id) => {
     if (!window.confirm(`Remove this ${participantLabel}?`)) return;
-    await fetch(`/api/teams/${id}`, { method: 'DELETE' });
+    await fetch(apiUrl(`/api/teams/${id}`), { method: 'DELETE' });
   };
 
   return (
@@ -1732,7 +1733,7 @@ function EventConfigManager({ config, dbInfo, supabaseStatus, auditLogs, primary
 
   const handleSave = async (e) => {
     e.preventDefault();
-    const res = await fetch('/api/config', {
+    const res = await fetch(apiUrl('/api/config'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form)
@@ -1970,7 +1971,7 @@ function EventConfigManager({ config, dbInfo, supabaseStatus, auditLogs, primary
                 setSupaBusy(true);
                 setSupaMsg('');
                 try {
-                  const res = await fetch('/api/db/supabase/status');
+                  const res = await fetch(apiUrl('/api/db/supabase/status'));
                   const data = await res.json();
                   setSupaMsg(data.tablesReady ? 'Supabase tables verified & ready!' : (data.lastError || 'Tables not ready yet.'));
                 } finally {
@@ -1990,7 +1991,7 @@ function EventConfigManager({ config, dbInfo, supabaseStatus, auditLogs, primary
                 setSupaBusy(true);
                 setSupaMsg('');
                 try {
-                  const res = await fetch('/api/db/supabase/push', { method: 'POST' });
+                  const res = await fetch(apiUrl('/api/db/supabase/push'), { method: 'POST' });
                   const data = await res.json();
                   if (!res.ok) throw new Error(data.error || 'Push failed');
                   onImported('Pushed all questions, schools, config, and answers to Supabase Cloud!');
@@ -2013,7 +2014,7 @@ function EventConfigManager({ config, dbInfo, supabaseStatus, auditLogs, primary
                 setSupaBusy(true);
                 setSupaMsg('');
                 try {
-                  const res = await fetch('/api/db/supabase/pull', { method: 'POST' });
+                  const res = await fetch(apiUrl('/api/db/supabase/pull'), { method: 'POST' });
                   const data = await res.json();
                   if (!res.ok) throw new Error(data.error || 'Pull failed');
                   onImported('Pulled latest questions, schools, and answers from Supabase Cloud!');
@@ -2064,7 +2065,7 @@ function EventConfigManager({ config, dbInfo, supabaseStatus, auditLogs, primary
 
           <div className="flex flex-wrap items-center gap-2">
             <a
-              href="/api/db/export"
+              href={apiUrl('/api/db/export')}
               download
               className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-[#f6f4ef] hover:bg-[#ece6de] text-[#2b1b1d] border border-[#d6cfc7] text-xs font-bold transition-all"
             >
@@ -2090,7 +2091,7 @@ function EventConfigManager({ config, dbInfo, supabaseStatus, auditLogs, primary
                   try {
                     const text = await file.text();
                     const parsed = JSON.parse(text);
-                    const res = await fetch('/api/db/import', {
+                    const res = await fetch(apiUrl('/api/db/import'), {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify(parsed)
