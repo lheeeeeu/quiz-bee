@@ -1,0 +1,16 @@
+node_modules
+dist
+.git
+.gitignore
+.env
+.env.*
+data
+src
+index.html
+vite.config.js
+tailwind.config.js
+postcss.config.js
+vercel.json
+supabase
+README.md
+*.log

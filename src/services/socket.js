@@ -1,4 +1,5 @@
 import { io } from 'socket.io-client';
+import { apiUrl, getSocketBaseUrl } from './api';
 
 class SocketService {
   constructor() {
@@ -10,22 +11,40 @@ class SocketService {
   connect() {
     if (this.socket) return this.socket;
 
-    // Use current origin in dev (proxied to 3001) or explicit port
-    const socketUrl = window.location.port === '5173' ? 'http://localhost:3001' : window.location.origin;
-    
+    const socketUrl = getSocketBaseUrl();
+
     this.socket = io(socketUrl, {
       transports: ['websocket', 'polling'],
-      reconnectionAttempts: 10,
-      reconnectionDelay: 1000
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000
     });
 
     this.socket.on('connect', () => {
       console.log('⚡ Connected to Quiz Bee Real-Time Server, ID:', this.socket.id);
       this.syncServerTime();
+      this.notifyListeners('connection_status', { connected: true });
     });
 
-    this.socket.on('disconnect', () => {
-      console.warn('⚠️ Disconnected from server');
+    this.socket.on('disconnect', (reason) => {
+      console.warn('⚠️ Disconnected from server:', reason);
+      this.notifyListeners('connection_status', { connected: false, reason });
+    });
+
+    this.socket.on('connect_error', (err) => {
+      console.warn('⚠️ WebSocket connection error:', err.message);
+      this.notifyListeners('connection_error', { message: err.message });
+    });
+
+    this.socket.io.on('reconnect_attempt', (attempt) => {
+      console.log(`🔄 Reconnecting to server (attempt ${attempt})...`);
+    });
+
+    this.socket.io.on('reconnect', () => {
+      console.log('✅ Reconnected to Quiz Bee Real-Time Server');
+      this.syncServerTime();
     });
 
     // Notify registered UI state listeners
@@ -61,7 +80,7 @@ class SocketService {
   async syncServerTime() {
     try {
       const start = Date.now();
-      const res = await fetch('/api/time');
+      const res = await fetch(apiUrl('/api/time'));
       if (res.ok) {
         const data = await res.json();
         const roundTrip = Date.now() - start;

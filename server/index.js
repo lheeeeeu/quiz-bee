@@ -13,18 +13,63 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+app.set('trust proxy', 1);
 const server = http.createServer(app);
+
+// Dynamic CORS origin validation for Vercel frontend + local development
+const rawCorsOrigins = (process.env.CORS_ORIGIN || '*')
+  .split(',')
+  .map(o => o.trim().replace(/\/+$/, ''))
+  .filter(Boolean);
+
+const allowAllOrigins = rawCorsOrigins.length === 0 || rawCorsOrigins.includes('*');
+
+function corsOriginValidator(origin, callback) {
+  // Allow non-browser requests (curl, Cloud Run health probes, same-origin)
+  if (!origin || allowAllOrigins) return callback(null, true);
+  const normalized = origin.replace(/\/+$/, '');
+  const isAllowed = rawCorsOrigins.some(allowed => {
+    if (allowed === normalized) return true;
+    // Support wildcard subdomain patterns like https://*.vercel.app
+    if (allowed.includes('*')) {
+      const regex = new RegExp('^' + allowed.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^.]+') + '$');
+      return regex.test(normalized);
+    }
+    return false;
+  });
+  if (isAllowed) return callback(null, true);
+  return callback(new Error(`CORS origin not allowed: ${origin}`));
+}
+
 const io = new Server(server, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
-  }
+    origin: corsOriginValidator,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    credentials: !allowAllOrigins
+  },
+  transports: ['websocket', 'polling'],
+  pingInterval: 25000,
+  pingTimeout: 20000
 });
 
 const gameEngine = new GameEngine(io);
 
-app.use(cors());
+app.use(cors({
+  origin: corsOriginValidator,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: !allowAllOrigins
+}));
 app.use(express.json({ limit: '5mb' }));
+
+// Cloud Run Health Check
+app.get('/health', (req, res) => {
+  res.json({
+    ok: true,
+    status: 'healthy',
+    uptimeSeconds: Math.floor(process.uptime()),
+    supabase: supabaseSync.getStatus()
+  });
+});
 
 // Health & Server Time
 app.get('/api/time', (req, res) => {
@@ -446,20 +491,44 @@ app.get('*', (req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT || 3001;
-server.listen(PORT, async () => {
-  const info = db.getDatabaseInfo();
-  console.log(`====================================================`);
-  console.log(`🏆 QUIZ BEE COMPETITION SERVER RUNNING ON PORT ${PORT}`);
-  console.log(`🗄️  Local DB: ${info.engine} (${info.file})`);
-  console.log(`📡 WebSocket ready & Server Time Authoritative`);
-  console.log(`====================================================`);
+const PORT = Number(process.env.PORT) || 8080;
+const HOST = '0.0.0.0';
 
+async function startServer() {
+  // Hydrate from Supabase before accepting live requests so Cloud Run cold starts never serve stale defaults
   const supa = await supabaseSync.initSync(db);
-  if (supa.tablesReady) {
-    console.log(`☁️  Supabase Cloud Sync ACTIVE (${supa.url})`);
-  } else if (supa.configured) {
-    console.log(`☁️  Supabase Configured (${supa.url}) — ${supa.lastError}`);
+
+  server.listen(PORT, HOST, () => {
+    const info = db.getDatabaseInfo();
+    console.log(`====================================================`);
+    console.log(`🏆 QUIZ BEE COMPETITION SERVER RUNNING ON ${HOST}:${PORT}`);
+    console.log(`🗄️  Runtime Cache DB: ${info.engine} (${info.file})`);
+    console.log(`🌐 CORS Allowed Origins: ${allowAllOrigins ? '*' : rawCorsOrigins.join(', ')}`);
+    console.log(`📡 WebSocket ready & Server Time Authoritative`);
+    if (supa.tablesReady) {
+      console.log(`☁️  Supabase Cloud Sync ACTIVE (${supa.url})`);
+    } else if (supa.configured) {
+      console.log(`☁️  Supabase Configured (${supa.url}) — ${supa.lastError}`);
+    }
+    console.log(`====================================================`);
+    gameEngine.broadcastFullState({ syncCloud: false });
+  });
+}
+
+// Graceful shutdown for Google Cloud Run (flushes pending Supabase sync before container exit)
+async function handleShutdown(signal) {
+  console.log(`[Server] Received ${signal}. Flushing pending cloud sync...`);
+  try {
+    await supabaseSync.flushPendingPush();
+    console.log('[Server] Cloud sync flushed cleanly.');
+  } catch (err) {
+    console.error('[Server] Error flushing cloud sync on shutdown:', err.message);
   }
-  gameEngine.broadcastFullState({ syncCloud: false });
-});
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(0), 5000).unref();
+}
+
+process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+process.on('SIGINT', () => handleShutdown('SIGINT'));
+
+startServer();

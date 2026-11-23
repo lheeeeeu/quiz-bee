@@ -6,7 +6,10 @@ import { DatabaseSync } from 'node:sqlite';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DATA_DIR = path.join(__dirname, '..', 'data');
-const DB_FILE = path.join(DATA_DIR, 'quizbee.db');
+const IS_CLOUD_RUN = Boolean(process.env.K_SERVICE);
+const DB_FILE = process.env.SQLITE_DB_PATH
+  ? path.resolve(process.env.SQLITE_DB_PATH)
+  : (IS_CLOUD_RUN ? '/tmp/quizbee.db' : path.join(DATA_DIR, 'quizbee.db'));
 
 const DEFAULT_CONFIG = {
   event_name: 'IT Skills Olympics',
@@ -327,8 +330,9 @@ export class Database {
   }
 
   init() {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
+    const dbDir = path.dirname(this.dbPath);
+    if (!fs.existsSync(dbDir)) {
+      fs.mkdirSync(dbDir, { recursive: true });
     }
 
     this.sqlite = new DatabaseSync(this.dbPath);

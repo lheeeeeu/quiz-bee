@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Users, Monitor, Lock, ArrowRight } from 'lucide-react';
 import { socketService } from './services/socket';
+import { apiUrl } from './services/api';
 import { Header } from './components/common/Header';
 import { HostDashboard } from './components/admin/HostDashboard';
 import { MainDisplayScreen } from './components/display/MainDisplayScreen';
@@ -46,7 +47,7 @@ export function App() {
       }
     });
 
-    fetch('/api/state')
+    fetch(apiUrl('/api/state'))
       .then(res => res.json())
       .then(data => setGameState(data))
       .catch(err => console.warn('REST snapshot fallback warning:', err));
@@ -260,7 +261,7 @@ function AdminLoginPage({ config, onSuccess, onBackHome }) {
     setError('');
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/admin-login', {
+      const res = await fetch(apiUrl('/api/auth/admin-login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ passcode })
