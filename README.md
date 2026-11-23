@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 🏆 Real-Time Quiz Bee Competition System
 
 A broadcast-grade, server-authoritative Real-Time Quiz Bee Competition System featuring three synchronized interfaces:
@@ -116,3 +117,6 @@ quiz-bee-system/
 ├── package.json
 └── vite.config.js
 ```
+=======
+# quiz-bee
+>>>>>>> origin/main
