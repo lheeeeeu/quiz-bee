@@ -6,10 +6,10 @@ import { DatabaseSync } from 'node:sqlite';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DATA_DIR = path.join(__dirname, '..', 'data');
-const IS_CLOUD_RUN = Boolean(process.env.K_SERVICE);
+const IS_EPHEMERAL_CLOUD = Boolean(process.env.K_SERVICE || process.env.RENDER);
 const DB_FILE = process.env.SQLITE_DB_PATH
   ? path.resolve(process.env.SQLITE_DB_PATH)
-  : (IS_CLOUD_RUN ? '/tmp/quizbee.db' : path.join(DATA_DIR, 'quizbee.db'));
+  : (IS_EPHEMERAL_CLOUD ? '/tmp/quizbee.db' : path.join(DATA_DIR, 'quizbee.db'));
 
 const DEFAULT_CONFIG = {
   event_name: 'IT Skills Olympics',
